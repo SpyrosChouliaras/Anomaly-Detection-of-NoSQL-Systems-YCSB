@@ -5,7 +5,8 @@ import os
 from pymongo import MongoClient
 import time
 
-conn = MongoClient('vm3',27017)
+#Connect with MongoDB in the storage node
+conn = MongoClient('xxx',27017)
 db = conn.Atlas
 collection = db.atlas_data
 
@@ -20,31 +21,30 @@ while True:
 #'pid' :  process ID
 #'memory_percent' : Compare process memory to total physical system memory and calculate process memory utilization as a percentage
 #'num_threads' : The number of trheads currently used by this process
-#'num_fds' : The number of file descriptors currently opened by this process
-#'num_ctx_swtiches' : The number voluntary and involuntary context switches performed by this process
+#'num_fds' : The number of file descriptors currently opened by this process 
+#'num_ctx_swtiches' : The number voluntary and involuntary context switches performed by this process 
 #'terminal' : The terminal associated with this process, if any, else None
 #'uids' : The real, effective and saved user ids of this process as a named tuple.
 #'gids' : The real, effective and saved group ids of this process as a named tuple
 #'cwd' : The process current working directory as an absolute path
 #'status' : The current process status as a string
-
-
-
+    cpu_percent = {'cpu_percent': psutil.cpu_percent(interval=0)}
     for proc in psutil.process_iter():
         try:
-            z = (proc.as_dict(attrs=['name','pid','memory_percent','memory_info',
-                                'cpu_times','num_fds','nice',
-                                'num_threads','num_ctx_switches','terminal',
-                                'uids','gids','cwd','status']))
-            z['cpu_percent'] = proc.cpu_percent()
+            z = (proc.as_dict(attrs=['name','ppid','memory_percent','memory_info',
+                                    'cpu_times','num_fds','nice',
+                                    'num_threads','num_ctx_switches','terminal',
+                                    'uids','gids','cwd','status']))
+            z['cpu_percent']=proc.cpu_percent(interval=0)
             datalist.append(z)
-
-        except (psutil.NoSuchProcess,psutil.AcessDenied,psutil.ZombieProcess):
+        except (psutil.NoSuchProcess,psutil.AccessDenied,psutil.ZombieProcess):
             pass
-
-
-        datalist.append(z)
-        datalist = sorted(datalist,key=lamda procObj : procObj['cpu_percent'],reverse=True)
+        ##Speed up Scenario for Linux  +2.6x
+        # z = (proc.as_dict(attrs=['cpu_num','cpu_percent','cpu_times',
+        #                       'create_time','name','ppid','status','terminal',
+        #                       'gids','num_ctx_switches','num_threads','uids',
+        #                       'username','memory_full_info','memory_maps']))
+        datalist = sorted(datalist,key=lambda procObj : procObj['cpu_percent'],reverse=True)
 
     #Process ID
     # process = psutil.Process(os.getpid())
@@ -57,6 +57,7 @@ while True:
     system = psutil.cpu_times().system
     idle = psutil.cpu_times().idle
     nice = psutil.cpu_times().nice
+    cpu_count = psutil.cpu_count()
     # iowait = psutil.cpu_times().iowait---
     # irq = psutil.cpu_times().irq    ----
     # softirq = psutil.cpu_times().softirq-  L   I   N   U   X
@@ -72,8 +73,6 @@ while True:
     virtual_memory_percent = psutil.virtual_memory().percent
     # memory used, calculated differently depending on the platform and designed for informational purposes only.
     virtual_memory_used = psutil.virtual_memory().used
-    # memory not being used at all (zeroed) that is readily available; note that this doesn’t reflect the actual memory available (use ‘available’ instead).
-    # memory not being used at all (zeroed) that is readily available
     virtual_memory_free = psutil.virtual_memory().free
     # memory currently in use or very recently used, and so it is in RAM
     virtual_memory_active = psutil.virtual_memory().active
@@ -116,7 +115,7 @@ while True:
     #          str(d.minute) + str(d.second))
 
     cpu_times = {'cpu_user': cpu_user, 'system': system,
-                 'idle': idle, 'nice': nice}
+                 'idle': idle, 'nice': nice, 'cpu_count': cpu_count}
 
     virtual_memory = {'virtual_memory_total': virtual_memory_total,
                       'virtual_memory_available': virtual_memory_available,
@@ -140,7 +139,7 @@ while True:
     disk_usage = {'disk_total': disk_total, 'disk_used': disk_used,
                   'disk_free': disk_free, 'disk_percent': disk_percent}
 
-    cpu_percent = {'cpu_percent': psutil.cpu_percent(interval=1)}
+    # cpu_percent = {'cpu_percent': psutil.cpu_percent(interval=1)}
 
     elements = {'cpu_times': cpu_times, 'virtual_memory': virtual_memory, 'cpu_percent': cpu_percent,
                 'disk_usage': disk_usage, 'swap_memory': swap_memory, 'disk_iocounters': disk_iocounters}
@@ -150,13 +149,9 @@ while True:
     data['Records_pid_usage'] = datalist
 
 
-    if counter != 2:
-
-        collection.insert_one(data)
-        counter += 1
-        elements = {}
-        data = {}
-        datalist=[]
-        time.sleep(5)
-    else:
-        break
+    collection.insert_one(data)
+    counter += 1
+    elements = {}
+    data = {}
+    datalist=[]
+    time.sleep(5)
