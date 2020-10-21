@@ -1,4 +1,4 @@
-# Anomaly-Detection-on-NoSQL-Systems
+# Anomaly-Detection-of-NoSQL-Systems
 
 *Insert Data*
 
